@@ -188,3 +188,90 @@ WHERE t2.rank_n = 1
 </details>
 
 
+
+
+[570. Managers with at Least 5 Direct Reports](https://leetcode.com/problems/managers-with-at-least-5-direct-reports/description/)
+
+### Intuition
+We need to return the manager names that have at least 5 direct reports. We can consider counting the number of employees that have the managers and filter those managers with more than or 5 employees.
+
+### Approach
+1. Use a CTE to get the counts of employees that have assigned every manager.
+2. Filter employees with no managers.
+3. Use `INNER JOIN` with the `Employee` table to get the manager name and return null if the `managerId` does not exist.
+
+<details>
+  <summary>Code</summary>
+
+  ```sql
+ 
+WITH manager_counts AS (
+    SELECT 
+        id, 
+        managerId, 
+        COUNT(*) AS count_manager
+    FROM Employee
+    WHERE managerId IS NOT NULL
+    GROUP BY managerId
+)
+SELECT 
+    e.name
+FROM manager_counts mc
+INNER JOIN Employee e ON mc.managerId = e.id
+WHERE mc.count_manager>=5
+  ```
+</details>
+
+
+[608. Tree Node](https://leetcode.com/problems/tree-node/description/)
+
+### Intuition
+We need to assign to each node in the `Tree` table its corresponding type (`Root, Inner, Leaf`).
+
+### Approach
+1. Root nodes:
+A node is a root if its `p_id` is NULL.
+Collect these in the first CTE.
+2. Leaf nodes:
+* Exclude any root nodes 
+* Implement a `LEFT ANTI JOIN` to get the nodes with no children.
+3. Inner nodes:
+* Exclude any root nodes 
+* Appear as a parent to some other node.
+We can extract them by selecting distinct p_id values that are not roots.
+4. Combine the previous results using `UNION ALL`.
+
+<details>
+  <summary>Code</summary>
+
+  ```sql
+ 
+WITH root_nodes AS (
+    SELECT
+        id,
+        "Root" as type
+    FROM Tree
+    WHERE p_id is NULL
+),
+leaf_nodes AS (
+    SELECT
+        T1.id,
+        "Leaf" as type
+    FROM Tree T1
+    LEFT JOIN Tree T2 ON T1.id = T2.p_id
+    WHERE T2.p_id IS NULL AND T1.id NOT IN (SELECT id FROM root_nodes)
+),
+inner_nodes AS (
+    SELECT DISTINCT
+        p_id,
+        "Inner" as type
+    FROM Tree
+    WHERE p_id NOT IN (SELECT id FROM root_nodes)
+)
+SELECT * FROM root_nodes 
+UNION ALL 
+SELECT * FROM leaf_nodes
+UNION ALL
+SELECT * FROM inner_nodes
+  ```
+</details>
