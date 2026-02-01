@@ -275,3 +275,78 @@ UNION ALL
 SELECT * FROM inner_nodes
   ```
 </details>
+
+[626. Exchange Seats](https://leetcode.com/problems/exchange-seats/description/)
+
+### Intuition
+
+We need to swap the seat IDs for every **two consecutive students**. If the total number of students is odd, the last student keeps their original seat ID. 
+
+To achieve this, we can create a new swapped seat ID for each row based on whether the current seat ID is even or odd, while handling the edge case where the last ID is odd.
+
+### Approach
+This is one approach to solving the problem:
+1. Create three new columns to get the swap ids:
+* id-1 &rarr; previous seat
+* id+1 &rarr; next seat
+* `MAX(id)` &rarr; used to consider the case when the last seat id is odd.
+2. Use a CTE to get the swapped ID using `CASE` conditional operation :
+* If the ID is even and less than `MAX(id)` column, then select the id-1 column. 
+* If the ID is odd and is equal to the max_id then keep the same ID. 
+* Otherwise select id+1.
+3. Join with the Seat table to get the students name by the swapped ids.
+4. Generate the final sequential seat IDs using `ROW_NUMBER()`.
+
+<details>
+  <summary>Code</summary>
+
+  ```sql
+ 
+WITH rank_student_pos AS(
+    SELECT
+        id,
+        student,
+        id-1 AS id1,
+        id+1 AS id2,
+        MAX(id) OVER() as max_id
+    FROM Seat
+),
+swapped_ids AS(
+SELECT 
+    CASE 
+        WHEN id % 2 = 0 AND id <= max_id THEN id1
+        WHEN id % 2 <> 0 AND id = max_id THEN max_id
+        ELSE id2
+    END AS swapped_ids
+ FROM rank_student_pos
+)
+SELECT 
+    ROW_NUMBER() OVER () AS id,
+    s.student
+FROM swapped_ids si
+LEFT JOIN Seat s ON si.swapped_ids = s.id
+  ```
+</details>
+
+[1045. Customers who bought all products](https://leetcode.com/problems/customers-who-bought-all-products/description/)
+
+### Intuition
+
+We need to get the customers who bough all products from the `Product` table. We can count the distinct products by customer_id and compare it with the total distinct products from the `Product` table.
+
+### Approach
+This is one approach to solving the problem:
+1. Group the `Customer` table by customer_id.
+2. Apply `HAVING` clause to filter those customers where the count distinct of products equals the total number of products in the `Product` table
+
+<details>
+  <summary>Code</summary>
+
+  ```sql
+SELECT customer_id
+FROM Customer
+GROUP BY customer_id
+HAVING COUNT(DISTINCT product_key) = (SELECT COUNT(*) FROM Product)
+
+  ```
+</details>
