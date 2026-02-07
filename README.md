@@ -350,3 +350,92 @@ HAVING COUNT(DISTINCT product_key) = (SELECT COUNT(*) FROM Product)
 
   ```
 </details>
+
+
+[585. Investments in 2016](https://leetcode.com/problems/investments-in-2016/description/)
+
+### Intuition
+
+We need to compute the total investments values in 2016 for the placeholders that meet two conditions:
+1. Their `tiv_2015` value appears in more than one record
+2. There are no more records with the same locations
+
+### Approach
+This is one approach to solving the problem:
+1. Use a CTE from `Insurance` table to get all the repeated records by `tiv_2015` column.
+2. Join the duplicated `tiv_2015` values to the original table to retain only qualifying policyholders.
+3. Exclude policyholders whose (lat, lon) location appears more than once by using a `NOT EXISTS` subquery.
+3. Sum and round to two digits the `tiv_2016` column.
+
+<details>
+  <summary>Code</summary>
+
+  ```sql
+
+WITH duplicated_tiv_2015 AS (
+    SELECT tiv_2015
+    FROM Insurance
+    GROUP BY tiv_2015
+    HAVING COUNT(*) > 1
+)
+SELECT
+    ROUND(SUM(i.tiv_2016), 2) AS tiv_2016
+FROM Insurance i
+JOIN duplicated_tiv_2015 d
+    ON i.tiv_2015 = d.tiv_2015
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM Insurance j
+    WHERE
+        j.lat = i.lat
+        AND j.lon = i.lon
+        AND j.pid <> i.pid
+)
+  ```
+</details>
+
+
+[602. Friend Requests II: Who Has the Most Friends](https://leetcode.com/problems/friend-requests-ii-who-has-the-most-friends/description/)
+
+### Intuition
+
+We need to get the user (only one) that has the most friends according to the `RequestAccepted` table. To get this we can calculate the count of accepters and requesters by ids, sum the total and get the id with the maximum sum.
+
+### Approach
+1. Use a CTE to get the `id`  and total requesters
+2. Use another CTE to get the `id` and the total accepters
+3. Union both results and sum the total by `id`
+4. Get the id with the maximum sum
+
+<details>
+  <summary>Code</summary>
+
+  ```sql
+
+WITH total_requesters AS (
+    SELECT
+        requester_id as id,
+        COUNT(*) as total
+    FROM RequestAccepted
+    GROUP BY requester_id
+),
+total_accepters AS (
+    SELECT
+        accepter_id as id,
+        COUNT(*) as total
+    FROM RequestAccepted
+    GROUP BY accepter_id
+),
+total_friends AS(
+    SELECT id, SUM(total) as total FROM(
+        SELECT id, total FROM total_requesters
+        UNION ALL
+        SELECT id, total FROM total_accepters
+    ) t1
+    GROUP BY t1.id
+)
+SELECT id, total as num FROM total_friends
+HAVING total = (SELECT MAX(total) FROM total_friends)
+
+  ```
+</details>
