@@ -439,3 +439,86 @@ HAVING total = (SELECT MAX(total) FROM total_friends)
 
   ```
 </details>
+
+[1070. Product Sales Analysis III](https://leetcode.com/problems/product-sales-analysis-iii/description/)
+
+### Intuition
+
+We need to return for each product the earliest year in which the product appears in the `Sales` table and return all sales records for that product in that year. We can use a window function to get all the entries for each product the first year it was sold. 
+
+### Approach
+1. Use a CTE and apply the `RANk()` function partitioned by `product_id` and order by `year` in ascending order.
+2. Filter the result to keep only rows where the rank equals 1.
+
+Note:
+`RANk()` Ensures that we return all the entries for a product in the given year.
+
+<details>
+  <summary>Code</summary>
+
+  ```sql
+
+WITH sales_rank AS (
+    SELECT
+        *,
+        RANK() OVER(PARTITION BY product_id ORDER BY year ASC) AS rnk
+    FROM Sales
+)
+SELECT
+    product_id,
+    year AS first_year,
+    quantity,
+    price
+FROM sales_rank
+WHERE rnk=1
+  ```
+</details>
+
+[1164. Product Price at a Given Date](https://leetcode.com/problems/product-price-at-a-given-date/description/)
+
+### Intuition
+
+Given the `Products` table where each record represents a change in the product price, we need to return the price for all the products on `2019-08-16`. There is a case where a product has no change its price that day or before, in that case the initial price is 10. 
+We can treat this problem into two parts and then perform an Union operation. The first part focuses on those products that have change its price on or before `2019-08-16`. In this case, we must retrieve the most recent price change prior to (or on) that date. 
+The second part gets all the products that didn't belong to the previous result and assign the default price value to be 10.
+
+### Approach
+1. Use a CTE where `change_date <= 2019-08-16` and apply a `ROW_NUMBER()` partitioned by `product_id` and order by `change_date` to get the most recent change first.
+2. Filter the first CTE to keep only rows where `ROW_NUMBER() = 1`.
+This gives us the latest valid price per product before the target date.
+3. Use another CTE to get the products that do not appear in the previous result and assign them the default price of 10.
+4. Perform an `Union ALL` for both results.
+
+<details>
+  <summary>Code</summary>
+
+  ```sql
+
+WITH product_dates AS(
+    SELECT
+        product_id,
+        new_price,
+        change_date,
+        ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY change_date DESC) rw_num
+    FROM Products
+    WHERE change_date <= '2019-08-16'
+),
+filtered_product_dates AS (
+    SELECT
+        product_id,
+        new_price AS price
+    FROM product_dates
+    WHERE rw_num = 1
+),
+remaining_products AS(
+    SELECT DISTINCT
+        p.product_id,
+        10 AS price
+    FROM Products p
+    WHERE product_id NOT IN (SELECT product_id FROM filtered_product_dates)
+)
+SELECT * FROM filtered_product_dates
+UNION ALL
+SELECT * FROM remaining_products
+  ```
+</details>
